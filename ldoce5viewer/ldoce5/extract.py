@@ -6,7 +6,10 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import re
-from cgi import escape
+try:
+    from html import escape
+except ImportError:
+    from cgi import escape
 from itertools import chain
 
 import lxml.etree as et

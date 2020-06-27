@@ -6,7 +6,10 @@ This module generates HTML data from LDOCE5's XML documents.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from cgi import escape
+try:
+    from html import escape
+except ImportError:
+    from cgi import escape
 
 import lxml.etree as et
 
