@@ -23,13 +23,13 @@ except ImportError:
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtNetwork import *
-from PyQt5.QtWebKit import *
-from PyQt5.QtWebKitWidgets import *
+from PyQt5.QtWebEngineWidgets import QWebEnginePage
 from PyQt5.QtWidgets import *
 from PyQt5.QtPrintSupport import *
 
 from .. import fulltext
 from .. import incremental
+from ..ldoce5 import LDOCE5
 from ..ldoce5.idmreader import is_ldoce5_dir
 from ..utils.compat import range
 from ..utils.text import (MATCH_OPEN_TAG, MATCH_CLOSE_TAG, ellipsis,
@@ -38,7 +38,7 @@ from ..utils.text import (MATCH_OPEN_TAG, MATCH_CLOSE_TAG, ellipsis,
 from . import indexer
 from .advanced import AdvancedSearchDialog
 from .config import get_config
-from .access import MyNetworkAccessManager, _load_static_data
+from .access import MyUrlSchemeHandler, _load_static_data
 from .async_ import AsyncFTSearcher
 from .utils.soundplayer import create_soundplayer
 from .indexer import IndexerDialog
@@ -52,7 +52,7 @@ _FTS_HWDPHR_LIMIT = 10000
 _INCREMENTAL_LIMIT = 500
 _MAX_DELAY_UPDATE_INDEX = 100
 _INTERVAL_AUTO_PRON = 50
-_LOCAL_SCHEMES = frozenset(('dict', 'static', 'search', 'audio'))
+_LOCAL_SCHEMES = frozenset(('dict', 'static', 'search'))
 _HELP_PAGE_URL = "http://hakidame.net/ldoce5viewer/manual/"
 
 
@@ -105,6 +105,7 @@ class MainWindow(QMainWindow):
         self._lazy = {}
 
         # Setup
+        self._scheme_handler = None
         self._setup_ui()
         self._restore_from_config()
 
@@ -548,13 +549,10 @@ class MainWindow(QMainWindow):
     def _getAudioData(self,  path,  callback):
         (archive, name) = path.lstrip('/').split('/', 1)
         if archive in ('us_hwd_pron', 'gb_hwd_pron', 'exa_pron', 'sfx', 'sound'):
-            def finished():
-                if reply.error() == QNetworkReply.NoError:
-                    callback(reply.readAll())
-
-            url = QUrl('dict:///{0}/{1}'.format(archive, name))
-            reply = self._networkAccessManager.get(QNetworkRequest(url))
-            reply.finished.connect(finished)
+            config = get_config()
+            ldoce5 = LDOCE5(config.get('dataDir', ''), config.filemap_path)
+            data = ldoce5.get_content(path)[0]
+            callback(data)
 
     def downloadSelectedAudio(self):
         path = self._ui.webView.audioUrlToDownload.path()
@@ -585,7 +583,7 @@ class MainWindow(QMainWindow):
             self._ui.webView.load(url)
         else:
             # not a local scheme
-            webbrowser.open(str(url.toEncoded()))
+            webbrowser.open(url.toString())
 
 
     def _onWebViewWheelWithCtrl(self, delta):
@@ -654,17 +652,18 @@ class MainWindow(QMainWindow):
             self._autoPronPlayback()
 
         # restore search phrase
-        hist_item = history.currentItem()
-        curr_query = self._ui.lineEditSearch.text()
-        hist_query = hist_item.userData()
-        if hist_query:
-            if hist_query != curr_query:
-                self._ui.lineEditSearch.setText(hist_query)
-                self._instantSearch()
-            else:
-                self._timerUpdateIndex.start(0)
-        else:
-            history.currentItem().setUserData(curr_query)
+        # FIXME: there seems to be no "userData" equivalent in QtWebEngine.
+        # hist_item = history.currentItem()
+        # curr_query = self._ui.lineEditSearch.text()
+        # hist_query = hist_item.userData()
+        # if hist_query:
+        #     if hist_query != curr_query:
+        #         self._ui.lineEditSearch.setText(hist_query)
+        #         self._instantSearch()
+        #     else:
+        #         self._timerUpdateIndex.start(0)
+        # else:
+        #     history.currentItem().setUserData(curr_query)
 
 
     #-----------------
@@ -767,18 +766,18 @@ class MainWindow(QMainWindow):
     #-------------
 
     def _onNavForward(self):
-        self._ui.webView.page().triggerAction(QWebPage.Forward)
+        self._ui.webView.page().triggerAction(QWebEnginePage.Forward)
 
     def _onNavBack(self):
-        self._ui.webView.page().triggerAction(QWebPage.Back)
+        self._ui.webView.page().triggerAction(QWebEnginePage.Back)
 
     def _onNavActionChanged(self):
         webPage = self._ui.webView.page()
         ui = self._ui
         ui.toolButtonNavForward.setEnabled(
-            webPage.action(QWebPage.Forward).isEnabled())
+            webPage.action(QWebEnginePage.Forward).isEnabled())
         ui.toolButtonNavBack.setEnabled(
-            webPage.action(QWebPage.Back).isEnabled())
+            webPage.action(QWebEnginePage.Back).isEnabled())
 
 
     #-----------
@@ -792,11 +791,18 @@ class MainWindow(QMainWindow):
     def _onTimerAutoPronTimeout(self):
         autoplayback = get_config().get('autoPronPlayback', None)
         if autoplayback:
-            metaData = self._ui.webView.page().mainFrame().metaData()
-            if autoplayback == 'US' and ('us_pron' in metaData):
-                self._playbackAudio('/us_hwd_pron/' + metaData['us_pron'][0])
-            elif autoplayback == 'GB' and ('gb_pron' in metaData):
-                self._playbackAudio('/gb_hwd_pron/' + metaData['gb_pron'][0])
+            if autoplayback == 'US':
+                name = 'us_pron'
+                archive = 'us_hwd_pron'
+            elif autoplayback == 'GB':
+                name = 'gb_pron'
+                archive = 'gb_hwd_pron'
+            if archive:
+                def callback(audio):
+                    if audio:
+                        self._playbackAudio(f'/{archive}/{audio}')
+                js = f"document.querySelector('meta[name={name}]')?.content"
+                self._ui.webView.page().runJavaScript(js, callback)
 
 
     def _onAutoPronChanged(self, action):
@@ -835,31 +841,29 @@ class MainWindow(QMainWindow):
         self._ui.actionFindNext.setEnabled(bool(text))
         self._ui.actionFindPrev.setEnabled(bool(text))
 
-        findtext = self._ui.webView.findText
-        findtext('')
-        findtext('', QWebPage.HighlightAllOccurrences)
-        found = findtext(text, QWebPage.HighlightAllOccurrences)
-        self._ui.actionFindNext.setEnabled(found)
-        self._ui.actionFindPrev.setEnabled(found)
-        if found:
-            findtext(text, QWebPage.FindWrapsAroundDocument)
-        if found or not text:
-            style = 'QLineEdit{ background-color: auto; color: auto; }'
-        else:
-            style = 'QLineEdit { background-color: #f77; color: white; }'
-        self._ui.lineEditFind.setStyleSheet(style)
+        def callback(found):
+            self._ui.actionFindNext.setEnabled(found)
+            self._ui.actionFindPrev.setEnabled(found)
+            if found:
+                self._ui.webView.findText(text)
+            if found or not text:
+                style = 'QLineEdit{ background-color: auto; color: auto; }'
+            else:
+                style = 'QLineEdit { background-color: #f77; color: white; }'
+            self._ui.lineEditFind.setStyleSheet(style)
+        self._ui.webView.findText('')
+        self._ui.webView.findText(text, QWebEnginePage.FindFlag(0), callback)
 
 
     def findNext(self):
         self._ui.webView.findText(
-                self._ui.lineEditFind.text(),
-                QWebPage.FindWrapsAroundDocument)
+                self._ui.lineEditFind.text())
 
 
     def findPrev(self):
         self._ui.webView.findText(
                 self._ui.lineEditFind.text(),
-                QWebPage.FindBackward | QWebPage.FindWrapsAroundDocument)
+                QWebEnginePage.FindBackward)
 
 
     #-------
@@ -971,6 +975,11 @@ class MainWindow(QMainWindow):
         wv = ui.webView
         wp = wv.page()
 
+        self._scheme_handler = MyUrlSchemeHandler(wv)
+        for scheme_name in _LOCAL_SCHEMES:
+            wp.profile().installUrlSchemeHandler(scheme_name.encode(),
+                                                 self._scheme_handler)
+
         self._ui.labelSearching.hide()
 
         # Toolbar
@@ -1026,18 +1035,18 @@ class MainWindow(QMainWindow):
             _set_icon(ui.actionAbout, 'help-about')
             _set_icon(ui.actionPrint, 'document-print')
             _set_icon(ui.actionPrintPreview, 'document-print-preview')
-            _set_icon(wp.action(QWebPage.Forward), 'go-next', '24')
-            _set_icon(wp.action(QWebPage.Back), 'go-previous', '24')
-            _set_icon(wp.action(QWebPage.Reload), 'reload')
-            _set_icon(wp.action(QWebPage.CopyImageToClipboard), 'edit-copy')
-            _set_icon(wp.action(QWebPage.InspectElement), 'document-properties')
+            _set_icon(wp.action(QWebEnginePage.Forward), 'go-next', '24')
+            _set_icon(wp.action(QWebEnginePage.Back), 'go-previous', '24')
+            _set_icon(wp.action(QWebEnginePage.Reload), 'reload')
+            _set_icon(wp.action(QWebEnginePage.CopyImageToClipboard), 'edit-copy')
+            _set_icon(wp.action(QWebEnginePage.InspectElement), 'document-properties')
         else:
             ui.toolBar.setIconSize(QSize(16,16))
             ui.actionNavForward.setIcon(QIcon(":/icons/go-next-mac.png"))
             ui.actionNavBack.setIcon(QIcon(":/icons/go-previous-mac.png"))
-            _set_icon(wp.action(QWebPage.Forward))
-            _set_icon(wp.action(QWebPage.Back))
-            _set_icon(wp.action(QWebPage.Reload))
+            _set_icon(wp.action(QWebEnginePage.Forward))
+            _set_icon(wp.action(QWebEnginePage.Back))
+            _set_icon(wp.action(QWebEnginePage.Reload))
 
         ui.frameFindbar.setStyleSheet("""#frameFindbar {
             border: 0px solid transparent;
@@ -1073,30 +1082,19 @@ class MainWindow(QMainWindow):
         # Nav Buttons
         ui.actionNavForward.triggered.connect(self._onNavForward)
         ui.actionNavBack.triggered.connect(self._onNavBack)
-        wp.action(QWebPage.Forward).changed.connect(self._onNavActionChanged)
-        wp.action(QWebPage.Back).changed.connect(self._onNavActionChanged)
+        wp.action(QWebEnginePage.Forward).changed.connect(self._onNavActionChanged)
+        wp.action(QWebEnginePage.Back).changed.connect(self._onNavActionChanged)
 
         # ListView
         ui.listWidgetIndex.setAttribute(Qt.WA_MacShowFocusRect, False);
 
         # WebView
-        wp.setLinkDelegationPolicy(QWebPage.DelegateAllLinks)
-        QWebSettings.setMaximumPagesInCache(32)
-        wv.history().setMaximumItemCount(50)
-        for name in _LOCAL_SCHEMES:
-            QWebSecurityOrigin.addLocalScheme(name)
-
-        for web_act in (QWebPage.OpenLinkInNewWindow,
-                QWebPage.OpenFrameInNewWindow, QWebPage.OpenImageInNewWindow,
-                QWebPage.DownloadLinkToDisk, QWebPage.DownloadImageToDisk,
-                QWebPage.CopyLinkToClipboard, QWebPage.CopyImageToClipboard,
+        for web_act in (QWebEnginePage.OpenLinkInNewWindow,
+                QWebEnginePage.DownloadLinkToDisk, QWebEnginePage.DownloadImageToDisk,
+                QWebEnginePage.CopyLinkToClipboard, QWebEnginePage.CopyImageToClipboard,
                 ):
             wp.action(web_act).setEnabled(False)
             wp.action(web_act).setVisible(False)
-
-        if hasattr(QWebPage, 'CopyImageUrlToClipboard'):
-            wp.action(QWebPage.CopyImageUrlToClipboard).setEnabled(False)
-            wp.action(QWebPage.CopyImageUrlToClipboard).setVisible(False)
 
         ui.menuEdit.insertAction(ui.actionFind, wv.actionCopyPlain)
         ui.menuEdit.insertSeparator(ui.actionFind)
@@ -1105,10 +1103,11 @@ class MainWindow(QMainWindow):
         wv.actionSearchText.setShortcut(QKeySequence('Ctrl+E'))
 
         # Web Inspector
-        wp.settings().setAttribute(QWebSettings.DeveloperExtrasEnabled, True)
-        wp.action(QWebPage.InspectElement).setText('Inspect Element')
-        ui.webInspector.setPage(wp)
+        wp.action(QWebEnginePage.InspectElement).setText('Inspect Element')
         self.setInspectorVisible(False)
+        # FIXME: how to prevent DevTools from enabling mobile device mode?
+        # (https://developer.chrome.com/docs/devtools/device-mode/)
+        # wp.setDevToolsPage(ui.webInspector.page())
 
         # History Menu
         ui.menuBackHistory = QMenu(ui.toolButtonNavBack)
@@ -1161,7 +1160,7 @@ class MainWindow(QMainWindow):
                 partial(self.setFindbarVisible, visible=False))
         act_conn(ui.actionCloseInspector,
                 partial(self.setInspectorVisible, visible=False))
-        act_conn(wp.action(QWebPage.InspectElement),
+        act_conn(wp.action(QWebEnginePage.InspectElement),
                 partial(self.setInspectorVisible, visible=True))
 
         ui.actionGroupAutoPron = QActionGroup(self)
@@ -1172,7 +1171,7 @@ class MainWindow(QMainWindow):
         ui.actionGroupAutoPron.triggered.connect(self._onAutoPronChanged)
 
         self.addAction(ui.actionFocusLineEdit)
-        self.addAction(wp.action(QWebPage.SelectAll))
+        self.addAction(wp.action(QWebEnginePage.SelectAll))
 
         # Set an action to each ToolButton
         ui.toolButtonFindNext.setDefaultAction(ui.actionFindNext)
@@ -1196,11 +1195,11 @@ class MainWindow(QMainWindow):
         ui.actionPrint.setShortcuts(QKeySequence.Print)
         ui.actionNormalSize.setShortcut(QKeySequence('Ctrl+0'))
         ui.actionFocusLineEdit.setShortcut(QKeySequence('Ctrl+L'))
-        wp.action(QWebPage.SelectAll).setShortcut(QKeySequence('Ctrl+A'))
-        wp.action(QWebPage.Back).setShortcuts([
+        wp.action(QWebEnginePage.SelectAll).setShortcut(QKeySequence('Ctrl+A'))
+        wp.action(QWebEnginePage.Back).setShortcuts([
             k for k in QKeySequence.keyBindings(QKeySequence.Back)
                 if not k.matches(QKeySequence("Backspace"))])
-        wp.action(QWebPage.Forward).setShortcuts(
+        wp.action(QWebEnginePage.Forward).setShortcuts(
             [k for k in QKeySequence.keyBindings(QKeySequence.Forward)
                 if not k.matches(QKeySequence("Shift+Backspace"))])
         ui.actionNavBack.setShortcuts([
@@ -1266,14 +1265,8 @@ class MainWindow(QMainWindow):
     # Resource Loader
     #-----------------
 
-    def _updateNetworkAccessManager(self, fulltext_hp, fulltext_de):
-        nwaccess = MyNetworkAccessManager(self, fulltext_hp, fulltext_de)
-        webPage = self._ui.webView.page()
-        webPage.setNetworkAccessManager(nwaccess)
-        self._networkAccessManager = nwaccess
-
     def _unload_searchers(self):
-        self._updateNetworkAccessManager(None, None)
+        self._scheme_handler._update_searchers(None, None)
 
         obj = self._lazy.pop(_LAZY_FTS_HWDPHR_ASYNC, None)
         if obj:
@@ -1301,7 +1294,7 @@ class MainWindow(QMainWindow):
                         config.fulltext_hwdphr_path, config.variations_path)
             except (EnvironmentError, fulltext.IndexError):
                 pass
-            self._updateNetworkAccessManager(
+            self._scheme_handler._update_searchers(
                     self._lazy.get(_LAZY_FTS_HWDPHR, None),
                     self._lazy.get(_LAZY_FTS_DEFEXA, None))
 
@@ -1319,7 +1312,7 @@ class MainWindow(QMainWindow):
                             config.variations_path)
             except (EnvironmentError, fulltext.IndexError):
                 pass
-            self._updateNetworkAccessManager(
+            self._scheme_handler._update_searchers(
                     self._lazy.get(_LAZY_FTS_HWDPHR, None),
                     self._lazy.get(_LAZY_FTS_DEFEXA, None))
 

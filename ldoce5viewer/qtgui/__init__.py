@@ -18,6 +18,7 @@ import codecs
 import os.path
 
 from PyQt5.QtGui import QIcon
+from PyQt5.QtWebEngineCore import QWebEngineUrlScheme
 
 from .utils.singleapp import SingleApplication
 from .utils.error import StdErrWrapper, MyStreamHandler
@@ -78,6 +79,14 @@ def run(argv):
         logging.Formatter('%(levelname)s:%(name)s:%(message)s'))
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG if options.debug else logging.ERROR)
+
+    # Register custom URL schemes
+    for scheme_name in 'dict', 'search', 'static':
+        scheme = QWebEngineUrlScheme(scheme_name.encode())
+        scheme.setSyntax(QWebEngineUrlScheme.Syntax.Path)
+        scheme.setFlags(QWebEngineUrlScheme.LocalScheme |
+                        QWebEngineUrlScheme.LocalAccessAllowed)
+        QWebEngineUrlScheme.registerScheme(scheme)
 
     # Create an application instance
     app = SingleApplication(argv, _SINGLEAPP_KEY)

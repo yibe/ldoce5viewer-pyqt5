@@ -206,11 +206,11 @@ def _render_header(title, mode, phrase, filters):
         if name != mode:
             r.append(
                 '<li><a href="{href}">{title}</a></li>\n'.format(
-                    href=href.toEncoded(), title=spec['title']))
+                    href=href.toString(), title=spec['title']))
         else:
             r.append(
                 '<li><span class="sel">{title}<span></li>\n'.format(
-                    href=href.toEncoded(), title=spec['title']))
+                    href=href.toString(), title=spec['title']))
 
     r.append('</ul>\n')
 

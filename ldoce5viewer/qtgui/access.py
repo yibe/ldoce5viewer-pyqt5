@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import sys
 import imp
+import mimetypes
 import os.path
 import traceback
 
@@ -12,6 +13,8 @@ from PyQt5.QtCore import (
     Qt, Q_ARG, QMetaObject, QIODevice, QTimer,)
 from PyQt5.QtNetwork import (
     QNetworkAccessManager, QNetworkReply, QNetworkRequest,)
+from PyQt5.QtWebEngineCore import (
+    QWebEngineUrlScheme, QWebEngineUrlSchemeHandler,)
 
 from .. import __version__
 from .. import __name__ as basepkgname
@@ -61,23 +64,25 @@ def _load_static_data(filename):
     return data
 
 
-class MyNetworkAccessManager(QNetworkAccessManager):
-    '''Customized NetworkAccessManager'''
+class MyUrlSchemeHandler(QWebEngineUrlSchemeHandler):
+    _schemes = ('dict', 'static', 'search')
 
-    def __init__(self, parent, searcher_hp, searcher_de):
-        QNetworkAccessManager.__init__(self, parent)
+    def __init__(self, parent):
+        super().__init__(parent)
+        self._searcher_hp = None
+        self._searcher_de = None
+
+    def _update_searchers(self, searcher_hp, searcher_de):
         self._searcher_hp = searcher_hp
         self._searcher_de = searcher_de
 
-    def createRequest(self, operation, request, data):
-        if (operation == self.GetOperation and
-                request.url().scheme() in ('dict', 'static', 'search')):
-            return MyNetworkReply(
-                self, operation, request,
-                self._searcher_hp, self._searcher_de)
-        else:
-            return super(MyNetworkAccessManager, self).createRequest(
-                operation, request, data)
+    def requestStarted(self, request):
+        url = request.requestUrl()
+        if request.requestMethod() == b'GET' and url.scheme() in self._schemes:
+            device = MyNetworkReply(
+                self, request, self._searcher_hp, self._searcher_de)
+            mime = device.rawHeader(b'Content-Type').split(';')[0]
+            request.reply(mime, device)
 
 
 class MyNetworkReply(QNetworkReply):
@@ -86,14 +91,11 @@ class MyNetworkReply(QNetworkReply):
     It handles the 'dict' and 'static' schemes.
     '''
 
-    def __init__(self, parent, operation, request,
-                 searcher_hp, searcher_de):
+    def __init__(self, parent, request, searcher_hp, searcher_de):
         QNetworkReply.__init__(self, parent)
 
-        url = request.url()
-        self.setRequest(request)
+        url = request.requestUrl()
         self.setUrl(url)
-        self.setOperation(operation)
         self.open(QIODevice.ReadOnly)
 
         self._finished = False
@@ -103,7 +105,7 @@ class MyNetworkReply(QNetworkReply):
         self._url = url
         self._searcher_hp = searcher_hp
         self._searcher_de = searcher_de
-        QTimer.singleShot(0, self._load)  # don't disturb the UI thread
+        self._load()
 
     def _load(self):
         url = self._url
@@ -116,6 +118,7 @@ class MyNetworkReply(QNetworkReply):
         if url.scheme() == 'static':
             try:
                 self._data = _load_static_data(url.path().lstrip('/'))
+                mime = mimetypes.guess_type(url.path(), strict=True)[0]
             except EnvironmentError:
                 self._data = '<h2>Static File Not Found</h2>'
                 mime = 'text/html'

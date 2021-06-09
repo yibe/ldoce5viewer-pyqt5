@@ -164,7 +164,7 @@ def _trans_ref(elem, root):
     topic = elem.get('topic')
     if len(topic.split('.')) == 4:
         id23 = shorten_id(topic)
-        href = '/fs/' + id23
+        href = 'dict:///fs/' + id23
         if elem.get('bookmark', None) is not None:
             href += '#' + shorten_id(elem.get('bookmark'))
     else:
@@ -215,41 +215,41 @@ def _trans_assets(root):
 
     if 'entry_collocations' in assets:
         colloc.append(('This Entry',
-                       '/collocations/' + assets['entry_collocations']))
+                       'dict:///collocations/' + assets['entry_collocations']))
     if 'other_entries_collocations' in assets:
         colloc.append(
                 ('Other Entries',
-                 '/collocations/' + assets['other_entries_collocations']))
+                 'dict:///collocations/' + assets['other_entries_collocations']))
     if 'corpus_collocations' in assets:
         colloc.append(('Corpus',
-                       '/collocations/' + assets['corpus_collocations']))
+                       'dict:///collocations/' + assets['corpus_collocations']))
     if 'thesaurus' in assets:
         thesaurus.append(('Thesaurus',
-                          '/thesaurus/' + assets['thesaurus']))
+                          'dict:///thesaurus/' + assets['thesaurus']))
     if 'activator' in assets:
         thesaurus.append(('Activator',
-            '/thesaurus/' + assets['activator']))
+            'dict:///thesaurus/' + assets['activator']))
     if 'word_sets' in assets:
         thesaurus.append(('Word Set',
-            '/word_sets/' + assets['word_sets']))
+            'dict:///word_sets/' + assets['word_sets']))
     if 'other_dictionary_examples' in assets:
         example.append(('Other Dicts',
-            '/examples/' + assets['other_dictionary_examples']))
+            'dict:///examples/' + assets['other_dictionary_examples']))
     if 'corpus_examples' in assets:
         example.append(('Corpus',
-            '/examples/' + assets['corpus_examples']))
+            'dict:///examples/' + assets['corpus_examples']))
     if 'entry_phrases' in assets:
         phrase.append(('This Entry',
-            '/phrases/' + assets['entry_phrases']))
+            'dict:///phrases/' + assets['entry_phrases']))
     if 'other_entries_phrases' in assets:
         phrase.append(('Other Entries',
-            '/phrases/' + assets['other_entries_phrases']))
+            'dict:///phrases/' + assets['other_entries_phrases']))
     if 'word_families' in assets:
         word.append(('Family',
-            '/word_families/' + assets['word_families']))
+            'dict:///word_families/' + assets['word_families']))
     if 'etymology' in assets:
         word.append(('Origin',
-            '/etymologies/' + assets['etymology']))
+            'dict:///etymologies/' + assets['etymology']))
 
     is_noun = False
     pos_elems = root.findall('Head/POS')
@@ -343,8 +343,8 @@ def _trans_audio(elem, root):
 def _trans_illustration(elem, root):
     topic = elem.get('thumb')
     filename = topic.split('/')[-1]
-    path_thumb = '/picture/thumbnail/' + filename
-    path_full = '/picture/fullsize/' + filename
+    path_thumb = 'dict:///picture/thumbnail/' + filename
+    path_full = 'dict:///picture/fullsize/' + filename
     attrib = {'src': path_thumb, 'style': 'float: right'}
     children = (_E('img', attrib), )
     yield _E('a', {'class': 'illust', 'href': path_full}, children)
