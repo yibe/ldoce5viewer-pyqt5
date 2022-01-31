@@ -12,7 +12,7 @@ This software is free and open source software licensed under the terms of GPLv3
 
 Install the required dependencies:
 
-sh```
+```
 sudo sudo apt-get install git make python pyqt5-dev-tools python3-pyqt5 python3-pyqt5.qtwebkit python3-lxml python3-whoosh  qtgstreamer-plugins-qt5
 ```
 
@@ -30,4 +30,4 @@ Start:
 python3 ./ldoce5viewer.py
 ```
 
-`make install` doesn't work as it still tries to use Python 2, which won't work. Instead, you can copy the `ldoce5viewer.desktop` file to ~/.local/share/applications/ldoce5viewer.desktop and change the `Exec` line to `Exec=python3 /home/<Your Username>/Programs/ldoce5viewer-pyqt5/ldoce5viewer.py` Run `sudo update-desktop-database -q` afterwards and you'll have a menu entry in your desktop environment. 
+`make install` doesn't work as it still tries to use Python 2, which won't work. Instead, you can copy the `ldoce5viewer.desktop` file to `~/.local/share/applications/ldoce5viewer.desktop` and change the `Exec` line to `Exec=python3 /home/<Your Username>/Programs/ldoce5viewer-pyqt5/ldoce5viewer.py` Run `sudo update-desktop-database -q` afterwards and you'll have a menu entry in your desktop environment. 
