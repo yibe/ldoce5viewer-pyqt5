@@ -10,10 +10,12 @@ This software is free and open source software licensed under the terms of GPLv3
 
 ## Installation instructions (Linux, debian based)
 
+You need Python 3 (<=3.7) for the application to work. Python >= 3.8 doesn't work because of a breaking change in it.
+
 Install the required dependencies:
 
 ```
-sudo sudo apt-get install git make python pyqt5-dev-tools python3-pyqt5 python3-pyqt5.qtwebkit python3-lxml python3-whoosh  qtgstreamer-plugins-qt5
+sudo apt-get install git make python3 pyqt5-dev-tools python3-pyqt5 python3-pyqt5.qtwebkit python3-lxml python3-whoosh  qtgstreamer-plugins-qt5 python3-distutils python3-sip
 ```
 
 Download and build:
