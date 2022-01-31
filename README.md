@@ -1,4 +1,4 @@
-#LDOCE5 Viewer (PyQt5)
+# LDOCE5 Viewer (PyQt5)
 
 This project is ported to PyQt5 which supports retina (HiDPI) display.  
 
