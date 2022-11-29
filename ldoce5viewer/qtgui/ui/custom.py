@@ -293,9 +293,6 @@ class WebView(QWebEngineView):
         else:
             super(WebView, self).keyPressEvent(event)
 
-    def print_(self, printer):
-        self.page().print(printer, lambda _: None)
-
     #--------------
     # Mouse Events
     #--------------

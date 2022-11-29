@@ -875,7 +875,7 @@ class MainWindow(QMainWindow):
         printer = self._printer
         printer.setDocName(ui.webView.title() or '')
         dialog = QPrintPreviewDialog(printer, self)
-        dialog.paintRequested.connect(ui.webView.print_)
+        dialog.paintRequested.connect(self._printDocument)
         dialog.exec_()
 
 
@@ -885,7 +885,16 @@ class MainWindow(QMainWindow):
         printer.setDocName(ui.webView.title() or '')
         dialog = QPrintDialog(printer, self)
         if dialog.exec_() == QDialog.Accepted:
-            ui.webView.print_(printer)
+            self._printDocument(printer)
+
+
+    @pyqtSlot(QPrinter)
+    def _printDocument(self, printer):
+        # It is necessary to use a local event loop here. See:
+        # https://doc.qt.io/qt-5/qtwebengine-webenginewidgets-printme-example.html
+        loop = QEventLoop()
+        self._ui.webView.page().print(printer, lambda _: loop.quit())
+        loop.exec_()
 
 
     #------------
