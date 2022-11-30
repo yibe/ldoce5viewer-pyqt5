@@ -903,6 +903,8 @@ class MainWindow(QMainWindow):
 
     def setInspectorVisible(self, visible):
         ui = self._ui
+        ui.webInspector.page().setInspectedPage(
+            ui.webView.page() if visible else None)
         ui.webInspector.setVisible(visible)
         ui.inspectorContainer.setVisible(visible)
 
@@ -1114,9 +1116,6 @@ class MainWindow(QMainWindow):
         # Web Inspector
         wp.action(QWebEnginePage.InspectElement).setText('Inspect Element')
         self.setInspectorVisible(False)
-        # FIXME: how to prevent DevTools from enabling mobile device mode?
-        # (https://developer.chrome.com/docs/devtools/device-mode/)
-        # wp.setDevToolsPage(ui.webInspector.page())
 
         # History Menu
         ui.menuBackHistory = QMenu(ui.toolButtonNavBack)
