@@ -169,7 +169,7 @@ def trans_word_sets(data_set):
             hwd = ref.find('hwd').text or ''
             pos = ref.find('pos').text or ''
             topic = ref.get('topic')
-            link = '/fs/' + shorten_id(topic)
+            link = 'dict:///fs/' + shorten_id(topic)
             r.append('''<li><a href="{0}" class=hwd>{1}</a> '''
                     '''<span class=pos>{2}</span>'''
                     '''</li>\n'''.format(link, escape(hwd), escape(pos)))
@@ -189,7 +189,7 @@ def trans_phrases(data):
         topic = ref.get('topic')
         bookmark = ref.get('bookmark')
         phrase = ref.text
-        link = '/fs/{0}#{1}'.format(shorten_id(topic), shorten_id(bookmark))
+        link = 'dict:///fs/{0}#{1}'.format(shorten_id(topic), shorten_id(bookmark))
         r.append('<h2><a href="{1}">{0}</a></h2>'.format(
             escape(phrase), link))
         r.append('<ul>')
@@ -232,7 +232,7 @@ def trans_word_families(data):
             r.append('<li>')
             ref = w.find('Ref')
             if ref is not None:
-                link = '/fs/' + shorten_id(ref.get('topic'))
+                link = 'dict:///fs/' + shorten_id(ref.get('topic'))
                 r.append('<a href="{0}" class=hwd>{1}</a>'.format(
                     link, escape(ref.text)))
             else:
@@ -240,7 +240,7 @@ def trans_word_families(data):
 
             ref = w.find('opp/Ref')
             if ref is not None:
-                link = '/fs/' + shorten_id(ref.get('topic'))
+                link = 'dict:///fs/' + shorten_id(ref.get('topic'))
                 r.append(' &#x2260; <a href="{0}" class=hwd>{1}</a>'.format(
                     link, escape(ref.text)))
 
@@ -274,12 +274,12 @@ def _trans_activator_concept(data, sid):
 
         cls = 'section sel' if (e.get('id') == sid) else 'section'
         r.append('<div class="{0}">\n'.format(cls))
-        r.append('<a href="/activator/{cid}/{sid}">{text}</a>'.format(
+        r.append('<a href="dict:///activator/{cid}/{sid}">{text}</a>'.format(
             cid=cid, sid=e.get('id'), text=_get_text_nr(e)))
         r.append('</div>\n')
 
     def ref(e):
-        r.append('<li><a href="/activator/{cid}/{sid}">{text}</a></li>'\
+        r.append('<li><a href="dict:///activator/{cid}/{sid}">{text}</a></li>'\
                 .format(
                     cid=e.get('topic'), sid=e.get('selection'),
                     text=escape(e.text.replace('/', ' / '))))
