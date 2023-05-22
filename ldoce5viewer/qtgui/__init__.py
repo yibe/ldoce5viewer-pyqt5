@@ -6,11 +6,6 @@ _SINGLEAPP_KEY = 'ed437af1-0388-4e13-90e9-486bdc88c77a'
 
 from .. import __author__
 
-# use PyQt API v2
-import sip
-sip.setapi('QString', 2)
-sip.setapi('QVariant', 2)
-
 import sys
 from optparse import OptionParser
 import logging
