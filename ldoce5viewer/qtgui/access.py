@@ -4,7 +4,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import sys
-import imp
+import _imp
 import mimetypes
 import os.path
 import traceback
@@ -32,7 +32,7 @@ def _load_static_data(filename):
     """Load a static file from the 'static' directory"""
 
     is_frozen = (hasattr(sys, 'frozen')  # new py2exe
-                 or imp.is_frozen('__main__'))  # tools/freeze
+                 or _imp.is_frozen('__main__'))  # tools/freeze
 
     if is_frozen:
         if sys.platform.startswith("darwin"):
