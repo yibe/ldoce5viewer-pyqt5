@@ -84,7 +84,7 @@ def list_files(data_root, archive_name):
     def _parse_cft(path):
         cp = ConfigParser()
         with open(path, 'r') as f:
-            cp.readfp(f)
+            cp.read_file(f)
         r = {}
         r['offsets'] = {}
         offset = 0
